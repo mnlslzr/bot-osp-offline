@@ -71,14 +71,39 @@
   #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d2430;color:#fff;padding:10px 16px;border-radius:10px;font-size:15px;max-width:90vw;z-index:20;opacity:0;pointer-events:none;transition:opacity .2s}
   #toast.on{opacity:1}
   .pot-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .usuario{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:14px}
+  .usuario b{font-size:15px}
+  .usuario button{border:1px solid rgba(255,255,255,.5);background:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:13px}
+  #login{position:fixed;inset:0;z-index:30;background:var(--pri);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+  #login .caja{background:#fff;border-radius:16px;padding:22px 18px;width:100%;max-width:380px}
+  #login h1{margin:0 0 4px;font-size:22px;text-align:center}
+  #login .sub{text-align:center;color:var(--sub);font-size:14px;margin-bottom:14px}
+  #login .logo{display:block;width:64px;height:64px;margin:0 auto 10px;border-radius:14px}
+  #loginPin{letter-spacing:6px;text-align:center;font-size:22px}
+  body.bloqueado header, body.bloqueado main, body.bloqueado .barra{display:none}
 </style>
 </head>
-<body>
+<body class="bloqueado">
+<div id="login" class="oculto">
+  <div class="caja">
+    <img class="logo" src="icon-192.png" alt="">
+    <h1>Auditoría OSP</h1>
+    <div class="sub">Ingresa con tu cuadrilla</div>
+    <label class="lbl" for="loginUsuario">Usuario (cuadrilla)</label>
+    <select id="loginUsuario"></select>
+    <label class="lbl" for="loginPin">PIN</label>
+    <input id="loginPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" placeholder="••••••">
+    <div id="loginMsg"></div>
+    <button class="btn" id="btnEntrar" style="margin-top:14px" onclick="entrar()">Entrar</button>
+    <div class="hint" style="text-align:center;margin-top:10px">La primera vez en este teléfono necesitas internet. Después puedes entrar sin señal.</div>
+  </div>
+</div>
 <header>
   <div class="row">
     <h1>📡 Auditoría OSP</h1>
     <span id="net" class="net">● En línea</span>
   </div>
+  <div class="usuario"><span>👷 <b id="usuarioActual">—</b></span><button type="button" onclick="salir()">Cerrar sesión</button></div>
   <nav>
     <button id="tabNueva" class="on" onclick="verTab('nueva')">Nueva inspección</button>
     <button id="tabReg" onclick="verTab('reg')">Registros <span id="badge" class="badge oculto">0</span></button>
@@ -182,8 +207,19 @@
       </div>
     </div>
     <div class="card">
-      <button class="btn" id="btnEnviar" onclick="exportar(false)">📤 Enviar pendientes al bot</button>
-      <div class="hint">Se genera un archivo <b>osp_….json</b>. Compártelo con el bot de Telegram cuando tengas señal. Si lo envías dos veces no se duplica: el bot ignora los registros que ya importó.</div>
+      <h2>🔄 Sincronización automática</h2>
+      <div id="syncEstado"></div>
+      <details style="margin-top:8px">
+        <summary class="hint">Avanzado: dirección del servidor</summary>
+        <input id="syncUrl" type="text" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" style="margin-top:6px">
+      </details>
+      <button class="btn" id="btnSync" style="margin-top:10px" onclick="sincronizar(true)">🔄 Sincronizar ahora</button>
+      <div class="hint">Con internet, los registros pendientes se envían solos al Sheet y a Drive (al abrir la app, al volver la señal y cada minuto). No hace falta hacer nada más.</div>
+    </div>
+    <div class="card">
+      <h2>📎 Respaldo manual</h2>
+      <button class="btn ghost" id="btnEnviar" onclick="exportar(false)">📎 Enviar pendientes por Telegram (archivo)</button>
+      <div class="hint">Solo si la sincronización automática falla: genera un archivo <b>osp_….json</b> para compartirlo con el bot. Nunca se duplica.</div>
       <div class="grid g2" style="margin-top:10px">
         <button class="btn ghost" onclick="exportar(true)">💾 Respaldo de todo</button>
         <button class="btn danger" onclick="borrarEnviados()">🗑️ Borrar enviados</button>
@@ -206,6 +242,9 @@
    CONFIGURACIÓN — mantener igual que en el bot (bot_osp.py)
    ===================================================================== */
 const ZONAS = ["SUCRE, A.C."];
+
+// Usuarios de acceso: deben ser IGUALES a los de USUARIOS en Code.gs
+const CUADRILLAS = ["C1 LUIS", "C2 JHON", "C3 ARNALDO", "C4 DIEGO", "C5 VICENTE", "C6 FRANCISCO"];
 
 const CATALOGO = {
   "NAP N2": [
@@ -239,6 +278,9 @@ const FOTO_MAX_PX = 1600;              // lado mayor de la foto comprimida
 const FOTO_CALIDAD = 0.82;
 const LOTE_MAX_BYTES = 15 * 1024 * 1024; // Telegram deja a los bots descargar hasta 20 MB
 const FORMATO = "osp_offline_v1";
+// Dirección de la aplicación web de Apps Script (termina en /exec). Pégala aquí para que todos los teléfonos la tengan.
+const SYNC_URL_DEFAULT = "";
+const SYNC_CADA_MS = 60 * 1000;
 const CON_HILO = ["NAP N2","Manga N1"];
 
 /* =====================================================================
@@ -284,7 +326,9 @@ const VACIO = () => ({ zona: ZONAS[0] || "__otra", zonaOtra: "", tipo: "", ident
   hilo: "", p1: "", p2: "", puertos: "", lat: null, lon: null, precision: null, link: "",
   coincide: "", foto: "", estado: "" });
 let f = VACIO();
-let registrosCache = [];
+let registrosCache = [];   // registros de la cuadrilla con sesión abierta
+let todosRegistros = [];   // todos los registros del teléfono (por si lo comparten varias cuadrillas)
+let sesion = { usuario: "" };
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -547,6 +591,7 @@ async function guardar(){
   const rec = {
     id: "APP-" + uuid(),
     creado: Date.now(),
+    cuadrilla: sesion.usuario,
     fecha_hora: fechaLocal(),
     zona: zonaActual(),
     tipo: f.tipo,
@@ -578,6 +623,7 @@ async function guardar(){
   refrescar(); guardarBorrador();
   window.scrollTo({ top: 0, behavior: "smooth" });
   toast(`✅ Guardado: ${rec.tipo} ${rec.identificador}`);
+  setTimeout(() => sincronizar(false), 1500);
 }
 
 function limpiar(preguntar){
@@ -593,12 +639,19 @@ function limpiar(preguntar){
    REGISTROS
    ===================================================================== */
 async function recargarRegistros(){
-  registrosCache = (await DB.todos()).sort((a, b) => b.creado - a.creado);
+  todosRegistros = (await DB.todos()).sort((a, b) => b.creado - a.creado);
+  // Registros de versiones anteriores sin cuadrilla: se asignan a quien inició sesión
+  if (sesion.usuario) {
+    for (const r of todosRegistros) if (!r.cuadrilla) { r.cuadrilla = sesion.usuario; await DB.guardar(r); }
+  }
+  // Cada cuadrilla solo ve (y exporta) sus propios registros
+  registrosCache = todosRegistros.filter(r => r.cuadrilla === sesion.usuario);
   const pend = registrosCache.filter(r => !r.exportado).length;
   $("cPend").textContent = pend; $("cExp").textContent = registrosCache.length - pend; $("cTot").textContent = registrosCache.length;
   const bd = $("badge"); bd.textContent = pend; bd.classList.toggle("oculto", pend === 0);
   $("btnEnviar").disabled = pend === 0;
   pintarLista();
+  pintarSync();
 }
 
 function pintarLista(){
@@ -611,8 +664,9 @@ function pintarLista(){
         <div class="t">${esc(r.tipo)} · ${esc(r.identificador)}</div>
         <div class="m">${esc(r.fecha_hora)} · ${esc(r.zona)}</div>
         <div class="m">${esc(r.estado)}</div>
-        <span class="tag ${r.exportado ? "exp" : "pend"}">${r.exportado ? "Enviado" : "Pendiente"}</span>
+        <span class="tag ${r.exportado ? "exp" : "pend"}">${r.exportado ? (r.metodo === "sync" ? "Sincronizado" : "Enviado (archivo)") : "Pendiente"}</span>
         ${r.existente === "No" ? `<span class="tag no">No existe</span>` : ""}
+        ${!r.exportado && r.errorSync ? `<div class="m" style="color:var(--bad)">⚠️ ${esc(r.errorSync)}</div>` : ""}
         ${r.diag_potencia === "CRÍTICA" ? `<span class="tag crit">Potencia crítica</span>` : ""}
       </div>
       <button class="x" title="Eliminar" onclick="borrarUno('${esc(r.id)}')">×</button>
@@ -629,7 +683,7 @@ async function borrarUno(id){
 async function borrarEnviados(){
   const ids = registrosCache.filter(r => r.exportado).map(r => r.id);
   if (!ids.length) { toast("No hay registros enviados para borrar"); return; }
-  if (!confirm(`¿Borrar ${ids.length} registro(s) ya enviados?\nConfirma antes que el bot respondió "Importación completada".`)) return;
+  if (!confirm(`¿Borrar ${ids.length} registro(s) ya enviados del teléfono?\nYa están en el Sheet; esto solo libera espacio.`)) return;
   await DB.borrar(ids); await recargarRegistros(); toast("🗑️ Registros enviados eliminados");
 }
 
@@ -694,9 +748,165 @@ async function exportar(todos){
     else toast("💾 Respaldo descargado", 3000);
   }
   if (enviado && !todos) {
-    for (const r of lista) { r.exportado = true; await DB.guardar(r); }
+    for (const r of lista) { r.exportado = true; r.metodo = "archivo"; await DB.guardar(r); }
     await recargarRegistros();
   }
+}
+
+/* =====================================================================
+   SINCRONIZACIÓN AUTOMÁTICA (Apps Script → Sheet + Drive)
+   ===================================================================== */
+const ls = {
+  get(k){ try { return localStorage.getItem(k) || ""; } catch(e) { return ""; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch(e) {} }
+};
+const cfg = {
+  get url(){ return (ls.get("osp_sync_url") || SYNC_URL_DEFAULT).trim(); }
+};
+// PIN de cada cuadrilla que ya inició sesión en este teléfono (para sincronizar sus pendientes)
+const claves = {
+  todas(){ try { return JSON.parse(ls.get("osp_claves") || "{}"); } catch(e) { return {}; } },
+  de(u){ return this.todas()[u] || ""; },
+  poner(u, c){ const t = this.todas(); t[u] = c; ls.set("osp_claves", JSON.stringify(t)); },
+  quitar(u){ const t = this.todas(); delete t[u]; ls.set("osp_claves", JSON.stringify(t)); }
+};
+let sincronizando = false, ultimoError = "";
+
+async function llamarServidor(cuerpo, params){
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 60000);
+  try {
+    const r = cuerpo
+      ? await fetch(cfg.url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(cuerpo), signal: ctrl.signal })
+      : await fetch(cfg.url + "?" + new URLSearchParams(params), { signal: ctrl.signal });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+function pintarSync(msg){
+  const box = $("syncEstado"); if (!box) return;
+  const pend = registrosCache.filter(r => !r.exportado).length;
+  let cls = "ok", txt;
+  if (msg) { cls = "warn"; txt = "⏳ " + msg; }
+  else if (!cfg.url) { cls = "bad"; txt = "Falta la dirección del servidor (pídela al administrador)."; }
+  else if (ultimoError) { cls = "bad"; txt = `⚠️ ${ultimoError}` + (pend ? ` · ${pend} pendiente(s)` : ""); }
+  else if (pend) { cls = "warn"; txt = `${pend} pendiente(s). Se enviarán solos cuando haya internet.`; }
+  else { const u = ls.get("osp_ultima_sync"); txt = "✅ Todo sincronizado" + (u ? ` · último envío ${u}` : ""); }
+  box.innerHTML = `<div class="aviso ${cls}">${esc(txt)}</div>`;
+  $("btnSync").disabled = sincronizando;
+  const n = $("net");
+  if (navigator.onLine && pend && cfg.url) n.textContent = sincronizando ? "● Sincronizando…" : `● En línea · ${pend} por enviar`;
+  else red();
+}
+
+async function sincronizar(manual){
+  if (sincronizando || !sesion.usuario) return;
+  // Se envían los pendientes de cualquier cuadrilla que haya iniciado sesión en este teléfono
+  const pend = todosRegistros.filter(r => !r.exportado && r.cuadrilla && claves.de(r.cuadrilla)).slice().reverse();
+  if (!pend.length) { if (manual) toast("No hay registros pendientes"); pintarSync(); return; }
+  if (!cfg.url) { if (manual) toast("Falta la dirección del servidor"); pintarSync(); return; }
+  if (!navigator.onLine) { if (manual) toast("Sin señal: se enviará solo cuando vuelva internet"); pintarSync(); return; }
+
+  sincronizando = true; let ok = 0, err = "";
+  const rechazados = new Set();
+  for (let i = 0; i < pend.length; i++) {
+    const r = pend[i];
+    if (rechazados.has(r.cuadrilla)) continue;
+    pintarSync(`Enviando ${i + 1} de ${pend.length}…`);
+    try {
+      const res = await llamarServidor({ usuario: r.cuadrilla, clave: claves.de(r.cuadrilla), registro: paraExportar(r) });
+      if (!res || !res.ok) {
+        err = (res && res.error) || "Error del servidor";
+        if (/usuario|pin|clave/i.test(err)) { rechazados.add(r.cuadrilla); continue; } // PIN cambiado: se piden credenciales de nuevo
+        r.errorSync = err; await DB.guardar(r);  // registro con problema: se salta y se sigue con los demás
+        continue;
+      }
+      r.exportado = true; r.metodo = "sync"; delete r.errorSync; await DB.guardar(r); ok++;
+    } catch (e) {
+      err = e.name === "AbortError" ? "Tiempo agotado (señal débil). Se reintentará." : "No se pudo conectar con el servidor. Se reintentará.";
+      break;
+    }
+  }
+  sincronizando = false; ultimoError = err;
+  if (ok) ls.set("osp_ultima_sync", fechaLocal().slice(5, 16));
+  await recargarRegistros();
+  if (ok) toast(`✅ ${ok} registro(s) enviados al Sheet`);
+  if (rechazados.has(sesion.usuario)) {
+    // El PIN de esta cuadrilla ya no es válido en el servidor: hay que volver a entrar
+    claves.quitar(sesion.usuario); ls.set("osp_hash_" + sesion.usuario, "");
+    toast("🔒 Tu PIN cambió. Vuelve a iniciar sesión.", 5000);
+    cerrarSesion();
+  } else if (err && manual) toast("⚠️ " + err, 4500);
+}
+
+/* =====================================================================
+   INICIO DE SESIÓN POR CUADRILLA
+   ===================================================================== */
+async function hashPin(usuario, pin){
+  const txt = "osp|" + usuario + "|" + pin;
+  if (window.crypto && crypto.subtle) {
+    const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+    return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, "0")).join("");
+  }
+  return txt; // respaldo (sin crypto.subtle): solo pasa si la app no está en https
+}
+
+function mostrarLogin(){
+  document.body.classList.add("bloqueado");
+  $("login").classList.remove("oculto");
+  const sel = $("loginUsuario");
+  sel.value = ls.get("osp_ultimo_usuario") || "";
+  $("loginPin").value = ""; $("loginMsg").innerHTML = "";
+}
+
+async function abrirSesion(usuario){
+  sesion = { usuario };
+  ls.set("osp_sesion", usuario); ls.set("osp_ultimo_usuario", usuario);
+  $("usuarioActual").textContent = usuario;
+  $("login").classList.add("oculto");
+  document.body.classList.remove("bloqueado");
+  ultimoError = "";
+  await recargarRegistros(); refrescar(); verTab("nueva");
+  sincronizar(false);
+}
+
+async function entrar(){
+  const usuario = $("loginUsuario").value;
+  const pin = $("loginPin").value.trim();
+  const msg = t => $("loginMsg").innerHTML = `<div class="aviso bad">${esc(t)}</div>`;
+  if (!usuario) return msg("Elige tu cuadrilla.");
+  if (!pin) return msg("Escribe tu PIN.");
+  const btn = $("btnEntrar"); btn.disabled = true; btn.textContent = "Verificando…";
+  try {
+    const h = await hashPin(usuario, pin);
+    let enLinea = null;
+    if (navigator.onLine && cfg.url) {
+      try { enLinea = await llamarServidor(null, { usuario, clave: pin }); } catch (e) { enLinea = null; }
+    }
+    if (enLinea && enLinea.ok) {
+      claves.poner(usuario, pin); ls.set("osp_hash_" + usuario, h);
+      return await abrirSesion(usuario);
+    }
+    if (enLinea && !enLinea.ok) return msg(enLinea.error || "Usuario o PIN incorrecto.");
+    // Sin internet: solo si esta cuadrilla ya entró antes en este teléfono
+    const guardado = ls.get("osp_hash_" + usuario);
+    if (!guardado) return msg(cfg.url ? "Primera vez en este teléfono: conéctate a internet para entrar." : "Falta configurar la dirección del servidor.");
+    if (guardado !== h) return msg("PIN incorrecto.");
+    claves.poner(usuario, pin);
+    return await abrirSesion(usuario);
+  } finally { btn.disabled = false; btn.textContent = "Entrar"; }
+}
+
+function cerrarSesion(){
+  sesion = { usuario: "" }; ls.set("osp_sesion", "");
+  registrosCache = []; f = VACIO(); guardarBorrador();
+  mostrarLogin();
+}
+
+function salir(){
+  const pend = registrosCache.filter(r => !r.exportado).length;
+  const aviso = pend ? `\n\nTienes ${pend} registro(s) pendientes: se quedan guardados y se enviarán solos cuando haya internet.` : "";
+  if (confirm(`¿Cerrar la sesión de ${sesion.usuario}?` + aviso)) cerrarSesion();
 }
 
 /* =====================================================================
@@ -720,10 +930,20 @@ function red(){
 
 (async function iniciar(){
   construir(); cargarBorrador(); red();
-  addEventListener("online", red); addEventListener("offline", red);
-  try { await DB.abrir(); await recargarRegistros(); }
+  $("loginUsuario").innerHTML = `<option value="">— Selecciona tu cuadrilla —</option>` +
+    CUADRILLAS.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  $("loginPin").addEventListener("keydown", e => { if (e.key === "Enter") entrar(); });
+  $("syncUrl").value = ls.get("osp_sync_url");
+  $("syncUrl").addEventListener("change", e => { ls.set("osp_sync_url", e.target.value.trim()); ultimoError = ""; pintarSync(); });
+  addEventListener("online", () => { red(); sincronizar(false); });
+  addEventListener("offline", () => { red(); pintarSync(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") sincronizar(false); });
+  setInterval(() => sincronizar(false), SYNC_CADA_MS);
+  try { await DB.abrir(); }
   catch (e) { toast("❌ El almacenamiento local no está disponible: " + e.message, 6000); }
-  refrescar();
+  const guardada = ls.get("osp_sesion");
+  if (guardada && CUADRILLAS.includes(guardada) && ls.get("osp_hash_" + guardada)) await abrirSesion(guardada);
+  else mostrarLogin();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW", e));

@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el teléfono para que abra sin internet.
 // Al publicar una versión nueva de index.html, cambia el número de CACHE.
-const CACHE = "osp-offline-v1";
+const CACHE = "osp-offline-v3";
 const ARCHIVOS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
