@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b5cad">
+<title>Auditoría OSP · Offline</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f2f4f7; --card:#fff; --txt:#14181f; --sub:#5b6472; --line:#d9dee6;
+    --pri:#0b5cad; --pri-2:#e6f0fb; --ok:#13804a; --ok-2:#e3f5ea; --bad:#c62828; --bad-2:#fdeaea;
+    --warn:#a35b00; --warn-2:#fff3df; --r:12px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:10;background:var(--pri);color:#fff;padding:10px 14px calc(10px) 14px;padding-top:max(10px,env(safe-area-inset-top))}
+  header .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  header h1{font-size:17px;margin:0;font-weight:650}
+  .net{font-size:12px;padding:3px 8px;border-radius:99px;background:rgba(255,255,255,.18);white-space:nowrap}
+  .net.off{background:#ffb74d;color:#3b2500}
+  nav{display:flex;gap:6px;margin-top:8px}
+  nav button{flex:1;border:0;border-radius:8px;padding:9px 6px;font-size:15px;font-weight:600;background:rgba(255,255,255,.15);color:#fff}
+  nav button.on{background:#fff;color:var(--pri)}
+  nav .badge{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:99px;background:#ffb74d;color:#3b2500;font-size:12px}
+  main{padding:12px;max-width:640px;margin:0 auto;padding-bottom:110px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+  .card h2{font-size:15px;margin:0 0 10px;color:var(--sub);font-weight:650;display:flex;gap:8px;align-items:center}
+  .card h2 .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--pri-2);color:var(--pri);font-size:13px}
+  .card.falta{border-color:var(--bad);box-shadow:0 0 0 2px var(--bad-2)}
+  label.lbl{display:block;font-size:13px;color:var(--sub);margin:8px 0 4px}
+  input[type=text],input[type=search],select,textarea,input[inputmode]{width:100%;font-size:17px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--txt)}
+  textarea{min-height:76px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--pri);border-color:var(--pri)}
+  .grid{display:grid;gap:8px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g1{grid-template-columns:1fr}
+  .opt{min-height:50px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font-size:16px;font-weight:600;color:var(--txt);padding:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .opt.on{border-color:var(--pri);background:var(--pri-2);color:var(--pri)}
+  .opt.si.on{border-color:var(--ok);background:var(--ok-2);color:var(--ok)}
+  .opt.no.on{border-color:var(--bad);background:var(--bad-2);color:var(--bad)}
+  .dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.25);flex:none}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;border:0;border-radius:10px;font-size:16px;font-weight:650;background:var(--pri);color:#fff;padding:10px 14px}
+  .btn.sec{background:var(--pri-2);color:var(--pri)}
+  .btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+  .btn.danger{background:var(--bad-2);color:var(--bad)}
+  .btn:disabled{opacity:.5}
+  .hint{font-size:13px;color:var(--sub);margin-top:6px}
+  .aviso{font-size:14px;border-radius:8px;padding:8px 10px;margin-top:8px}
+  .aviso.warn{background:var(--warn-2);color:var(--warn)}
+  .aviso.ok{background:var(--ok-2);color:var(--ok)}
+  .aviso.bad{background:var(--bad-2);color:var(--bad)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 12px;font-size:14px;color:var(--txt)}
+  .foto-prev{margin-top:10px;width:100%;border-radius:10px;border:1px solid var(--line);display:none}
+  .oculto{display:none!important}
+  .barra{position:fixed;left:0;right:0;bottom:0;background:rgba(242,244,247,.96);border-top:1px solid var(--line);padding:10px 12px;padding-bottom:max(10px,env(safe-area-inset-bottom));z-index:9}
+  .barra .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:1fr 2fr;gap:8px}
+  .reg{display:flex;gap:10px;align-items:flex-start}
+  .reg img{width:64px;height:64px;object-fit:cover;border-radius:8px;flex:none;background:#eee}
+  .reg .t{font-weight:650}
+  .reg .m{font-size:13px;color:var(--sub)}
+  .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;margin-right:4px;margin-top:4px}
+  .tag.pend{background:var(--warn-2);color:var(--warn)} .tag.exp{background:var(--ok-2);color:var(--ok)}
+  .tag.no{background:var(--bad-2);color:var(--bad)} .tag.crit{background:var(--bad);color:#fff}
+  .reg .x{margin-left:auto;border:0;background:none;color:var(--sub);font-size:22px;padding:0 4px}
+  .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .resumen b{display:block;font-size:24px}
+  .resumen span{font-size:12px;color:var(--sub)}
+  #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d2430;color:#fff;padding:10px 16px;border-radius:10px;font-size:15px;max-width:90vw;z-index:20;opacity:0;pointer-events:none;transition:opacity .2s}
+  #toast.on{opacity:1}
+  .pot-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>📡 Auditoría OSP</h1>
+    <span id="net" class="net">● En línea</span>
+  </div>
+  <nav>
+    <button id="tabNueva" class="on" onclick="verTab('nueva')">Nueva inspección</button>
+    <button id="tabReg" onclick="verTab('reg')">Registros <span id="badge" class="badge oculto">0</span></button>
+  </nav>
+</header>
+
+<main>
+  <!-- ================= NUEVA INSPECCIÓN ================= -->
+  <section id="vistaNueva">
+    <div class="card" id="secZona">
+      <h2><span class="n">1</span> Zona</h2>
+      <select id="zona"></select>
+      <input id="zonaOtra" type="text" class="oculto" placeholder="Escribe la zona o sector" style="margin-top:8px">
+    </div>
+
+    <div class="card" id="secTipo">
+      <h2><span class="n">2</span> Elemento</h2>
+      <div class="grid g1" data-grupo="tipo">
+        <button class="opt" data-v="NAP N2">📦 NAP N2</button>
+        <button class="opt" data-v="Manga N1">🔌 Manga N1</button>
+        <button class="opt" data-v="Manga derivación">🌿 Manga derivación</button>
+      </div>
+    </div>
+
+    <div class="card oculto" id="secId">
+      <h2><span class="n">3</span> Identificador</h2>
+      <input id="identificador" type="search" list="listaIds" autocomplete="off" placeholder="Escribe o elige de la lista">
+      <datalist id="listaIds"></datalist>
+      <div id="avisoId"></div>
+    </div>
+
+    <div class="card oculto" id="secExiste">
+      <h2><span class="n">4</span> ¿Existe físicamente en campo?</h2>
+      <div class="grid g2" data-grupo="existente">
+        <button class="opt si" data-v="Sí">✅ Sí</button>
+        <button class="opt no" data-v="No">❌ No</button>
+      </div>
+    </div>
+
+    <div class="card oculto" id="secHilo">
+      <h2><span class="n">5</span> Hilo del splitter</h2>
+      <div class="grid g3" data-grupo="hilo" id="gridHilos"></div>
+    </div>
+
+    <div class="card oculto" id="secPot">
+      <h2><span class="n">6</span> Potencia óptica (dBm)</h2>
+      <div class="pot-row">
+        <div><label class="lbl" for="p1">Puerto 1 (P1)</label><input id="p1" inputmode="decimal" placeholder="-19.4"></div>
+        <div><label class="lbl" for="p2">Puerto 2 (P2)</label><input id="p2" inputmode="decimal" placeholder="-19.8"></div>
+      </div>
+      <div class="hint">Si escribes el número sin signo, se guarda como negativo.</div>
+      <div id="diag"></div>
+    </div>
+
+    <div class="card oculto" id="secPuertos">
+      <h2><span class="n">7</span> Puertos ocupados</h2>
+      <div class="grid g3" data-grupo="puertos" id="gridPuertos"></div>
+    </div>
+
+    <div class="card oculto" id="secUbic">
+      <h2><span class="n">8</span> Ubicación</h2>
+      <button class="btn sec" id="btnGps" type="button">📍 Capturar GPS</button>
+      <div id="gpsEstado"></div>
+      <label class="lbl" for="link">…o pega un enlace de Google Maps / coordenadas</label>
+      <input id="link" type="text" inputmode="url" placeholder="https://maps.app.goo.gl/…  o  10.4567,-64.1234">
+      <div class="hint">El GPS funciona sin internet (activa la ubicación del teléfono y espera a que la precisión baje).</div>
+    </div>
+
+    <div class="card oculto" id="secCoincide">
+      <h2><span class="n">9</span> ¿La ubicación coincide con la de campo?</h2>
+      <div class="grid g2" data-grupo="coincide">
+        <button class="opt si" data-v="Sí">✅ Sí</button>
+        <button class="opt no" data-v="No">❌ No</button>
+      </div>
+    </div>
+
+    <div class="card oculto" id="secFoto">
+      <h2><span class="n">10</span> Foto de evidencia</h2>
+      <div class="grid g2">
+        <label class="btn sec">🖼️ Galería (NoteCam)<input id="fotoGaleria" type="file" accept="image/*" class="oculto"></label>
+        <label class="btn ghost">📷 Cámara<input id="fotoCamara" type="file" accept="image/*" capture="environment" class="oculto"></label>
+      </div>
+      <img id="fotoPrev" class="foto-prev" alt="Vista previa de la foto">
+      <div id="fotoInfo" class="hint"></div>
+    </div>
+
+    <div class="card oculto" id="secEstado">
+      <h2><span class="n">11</span> Estado del elemento</h2>
+      <textarea id="estado" placeholder="Ej. Óptima, Tapa dañada…"></textarea>
+      <div class="chips" id="chipsEstado"></div>
+    </div>
+  </section>
+
+  <!-- ================= REGISTROS ================= -->
+  <section id="vistaReg" class="oculto">
+    <div class="card">
+      <div class="resumen">
+        <div><b id="cPend">0</b><span>Pendientes</span></div>
+        <div><b id="cExp">0</b><span>Enviados</span></div>
+        <div><b id="cTot">0</b><span>Total</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <button class="btn" id="btnEnviar" onclick="exportar(false)">📤 Enviar pendientes al bot</button>
+      <div class="hint">Se genera un archivo <b>osp_….json</b>. Compártelo con el bot de Telegram cuando tengas señal. Si lo envías dos veces no se duplica: el bot ignora los registros que ya importó.</div>
+      <div class="grid g2" style="margin-top:10px">
+        <button class="btn ghost" onclick="exportar(true)">💾 Respaldo de todo</button>
+        <button class="btn danger" onclick="borrarEnviados()">🗑️ Borrar enviados</button>
+      </div>
+    </div>
+    <div id="listaReg"></div>
+  </section>
+</main>
+
+<div class="barra" id="barraGuardar">
+  <div class="in">
+    <button class="btn ghost" onclick="limpiar(true)">Limpiar</button>
+    <button class="btn" id="btnGuardar" onclick="guardar()">💾 Guardar inspección</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   CONFIGURACIÓN — mantener igual que en el bot (bot_osp.py)
+   ===================================================================== */
+const ZONAS = ["SUCRE, A.C."];
+
+const CATALOGO = {
+  "NAP N2": [
+    "2069","2070","2071","2072","2073","2074","2075","2076","2077","2078","2079","2080","2081","2082","2083","2084",
+    "2085","2086","2087","2088","2089","2090","2091","2092","2093","2094","2095","2096","2097","2098","2099","2100",
+    "2101","2102","2103","2104","2105","2107","2108","2109","2110","2111","2112","2113","2114","2115","2116","2117",
+    "2118","2119","2120","2121","2122","2123","2124","2125","2126","2127","2128","2129","2130","2131","2132","2133",
+    "2134","2135","2136","2137","2138","2139","2140","2141","2142","2143","2144","2145","2146","2148","2149","2150",
+    "2392","2393","2394","2395","2396","2397","2398","2399","2400","2401","2402","2403","2404","2405","2406","2407",
+    "2408","2409","2410","2411","2412","2413","2414","2415","2416","2417","2418","2420","2421","2422","2423","2424",
+    "2425","2426","2427","2428","2429","2430","2442","2444","3503","3504","3505","3506","3507","3508","3512","4170",
+    "4171","4172","4173"
+  ],
+  "Manga N1": [
+    "Nap 1x16 22","Nap 1x16 23","Nap 1x16 24","Nap 1x16 25","Nap 1x16 26","Nap 1x16 27",
+    "GPON 2 - 1X16 - A.C.L.S","GPON 3 - 1X16 - A.C.L.S"
+  ],
+  "Manga derivación": ["MANGA 144 H","MANGA 48H67","MANGA 48H76","MANGA M1 - 22"]
+};
+
+const HILOS = [
+  ["1","1 (Azul)","#1e66f5"],["2","2 (Naranja)","#f57c00"],["3","3 (Verde)","#2e9e44"],
+  ["4","4 (Marrón)","#7b4a24"],["5","5 (Gris)","#9aa0a6"],["6","6 (Blanco)","#ffffff"],
+  ["7","7 (Rojo)","#d32f2f"],["8","8 (Negro)","#111111"],["9","9 (Amarillo)","#fdd835"],
+  ["10","10 (Morado)","#7b1fa2"],["11","11 (Rosa)","#f06292"],["12","12 (Azul Agua)","#26c6da"]
+];
+
+const ESTADOS_RAPIDOS = ["Óptima","Tapa dañada","Herraje comprometido","Debajo de transformador","Sin etiqueta","Cable expuesto"];
+const UMBRAL_CRITICO = -25.0;          // igual que el bot
+const FOTO_MAX_PX = 1600;              // lado mayor de la foto comprimida
+const FOTO_CALIDAD = 0.82;
+const LOTE_MAX_BYTES = 15 * 1024 * 1024; // Telegram deja a los bots descargar hasta 20 MB
+const FORMATO = "osp_offline_v1";
+const CON_HILO = ["NAP N2","Manga N1"];
+
+/* =====================================================================
+   BASE DE DATOS LOCAL (IndexedDB)
+   ===================================================================== */
+const DB = {
+  db: null,
+  abrir(){
+    return new Promise((ok, mal) => {
+      const r = indexedDB.open("osp_offline", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("registros", { keyPath: "id" });
+      r.onsuccess = () => { this.db = r.result; ok(); };
+      r.onerror = () => mal(r.error);
+    });
+  },
+  guardar(rec){
+    return new Promise((ok, mal) => {
+      const t = this.db.transaction("registros", "readwrite");
+      t.objectStore("registros").put(rec);
+      t.oncomplete = () => ok(); t.onerror = () => mal(t.error); t.onabort = () => mal(t.error);
+    });
+  },
+  todos(){
+    return new Promise((ok, mal) => {
+      const q = this.db.transaction("registros").objectStore("registros").getAll();
+      q.onsuccess = () => ok(q.result || []); q.onerror = () => mal(q.error);
+    });
+  },
+  borrar(ids){
+    return new Promise((ok, mal) => {
+      const t = this.db.transaction("registros", "readwrite");
+      const s = t.objectStore("registros");
+      ids.forEach(id => s.delete(id));
+      t.oncomplete = () => ok(); t.onerror = () => mal(t.error);
+    });
+  }
+};
+
+/* =====================================================================
+   ESTADO DEL FORMULARIO
+   ===================================================================== */
+const VACIO = () => ({ zona: ZONAS[0] || "__otra", zonaOtra: "", tipo: "", identificador: "", existente: "",
+  hilo: "", p1: "", p2: "", puertos: "", lat: null, lon: null, precision: null, link: "",
+  coincide: "", foto: "", estado: "" });
+let f = VACIO();
+let registrosCache = [];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function toast(msg, ms = 2600){
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), ms);
+}
+
+function guardarBorrador(){
+  try { localStorage.setItem("osp_borrador", JSON.stringify(f)); } catch(e) {
+    // si la foto no cabe, se guarda el borrador sin ella
+    try { localStorage.setItem("osp_borrador", JSON.stringify({ ...f, foto: "" })); } catch(_) {}
+  }
+}
+function cargarBorrador(){
+  try { const b = JSON.parse(localStorage.getItem("osp_borrador") || "null"); if (b) f = { ...VACIO(), ...b }; } catch(e) {}
+}
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+function uuid(){
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16);
+  });
+}
+const pad = n => String(n).padStart(2, "0");
+function fechaLocal(d = new Date()){
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function numPotencia(txt){
+  const v = parseFloat(String(txt).replace(",", ".").trim());
+  if (!isFinite(v)) return null;
+  return v > 0 ? -v : v;
+}
+function coordsDeTexto(txt){
+  const m = String(txt).match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon };
+}
+const zonaActual = () => f.zona === "__otra" ? f.zonaOtra.trim() : f.zona;
+const normId = (id, tipo) => tipo === "NAP N2" ? id.trim().toUpperCase() : id.trim();
+
+/* =====================================================================
+   CONSTRUCCIÓN DE LA INTERFAZ
+   ===================================================================== */
+function construir(){
+  const sz = $("zona");
+  sz.innerHTML = ZONAS.map(z => `<option value="${esc(z)}">📍 ${esc(z)}</option>`).join("") +
+    `<option value="__otra">✍️ Otra zona…</option>`;
+
+  $("gridHilos").innerHTML = HILOS.map(([v, n, c]) =>
+    `<button class="opt" data-v="${v}"><span class="dot" style="background:${c}"></span>${esc(n)}</button>`).join("");
+  $("gridPuertos").innerHTML = Array.from({ length: 9 }, (_, i) => `<button class="opt" data-v="${i}">${i}</button>`).join("");
+  $("chipsEstado").innerHTML = ESTADOS_RAPIDOS.map(e => `<button class="chip" type="button">${esc(e)}</button>`).join("");
+
+  // Grupos de botones de opción
+  document.querySelectorAll("[data-grupo]").forEach(g => {
+    g.addEventListener("click", ev => {
+      const b = ev.target.closest(".opt"); if (!b) return;
+      const campo = g.dataset.grupo;
+      f[campo] = b.dataset.v;
+      if (campo === "tipo") { f.identificador = ""; f.hilo = ""; f.p1 = ""; f.p2 = ""; f.puertos = ""; $("identificador").value = ""; }
+      refrescar(); guardarBorrador();
+      // desplaza a la siguiente sección visible
+      const sec = g.closest(".card"); sec.classList.remove("falta");
+      let sig = sec.nextElementSibling;
+      while (sig && sig.classList.contains("oculto")) sig = sig.nextElementSibling;
+      if (sig && campo !== "existente") setTimeout(() => sig.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    });
+  });
+
+  sz.addEventListener("change", () => { f.zona = sz.value; refrescar(); guardarBorrador(); if (f.zona === "__otra") $("zonaOtra").focus(); });
+  $("zonaOtra").addEventListener("input", e => { f.zonaOtra = e.target.value; guardarBorrador(); });
+  $("identificador").addEventListener("input", e => { f.identificador = e.target.value; avisoIdentificador(); guardarBorrador(); });
+  $("p1").addEventListener("input", e => { f.p1 = e.target.value; diagnostico(); guardarBorrador(); });
+  $("p2").addEventListener("input", e => { f.p2 = e.target.value; diagnostico(); guardarBorrador(); });
+  $("link").addEventListener("input", e => {
+    f.link = e.target.value.trim();
+    const c = coordsDeTexto(f.link);
+    if (c) { f.lat = c.lat; f.lon = c.lon; f.precision = null; }
+    else if (f.link) { f.lat = null; f.lon = null; f.precision = null; }
+    estadoGps(); guardarBorrador();
+  });
+  $("estado").addEventListener("input", e => { f.estado = e.target.value; guardarBorrador(); });
+  $("chipsEstado").addEventListener("click", ev => {
+    const c = ev.target.closest(".chip"); if (!c) return;
+    const t = c.textContent;
+    f.estado = f.estado.trim() ? `${f.estado.trim().replace(/[,.]$/, "")}, ${t}` : t;
+    $("estado").value = f.estado; guardarBorrador();
+  });
+  $("btnGps").addEventListener("click", capturarGps);
+  $("fotoGaleria").addEventListener("change", e => cargarFoto(e.target));
+  $("fotoCamara").addEventListener("change", e => cargarFoto(e.target));
+}
+
+function marcarGrupo(campo){
+  document.querySelectorAll(`[data-grupo="${campo}"] .opt`).forEach(b => b.classList.toggle("on", b.dataset.v === String(f[campo])));
+}
+
+function refrescar(){
+  $("zona").value = f.zona;
+  $("zonaOtra").classList.toggle("oculto", f.zona !== "__otra");
+  $("zonaOtra").value = f.zonaOtra;
+  ["tipo","existente","hilo","puertos","coincide"].forEach(marcarGrupo);
+
+  const tieneTipo = !!f.tipo, si = f.existente === "Sí";
+  const conHilo = CON_HILO.includes(f.tipo), esNap = f.tipo === "NAP N2";
+  const vis = (id, v) => $(id).classList.toggle("oculto", !v);
+  vis("secId", tieneTipo);
+  vis("secExiste", tieneTipo);
+  vis("secHilo", tieneTipo && si && conHilo);
+  vis("secPot", tieneTipo && si && esNap);
+  vis("secPuertos", tieneTipo && si && esNap);
+  ["secUbic","secCoincide","secFoto","secEstado"].forEach(id => vis(id, tieneTipo && si));
+
+  // Numeración dinámica de pasos
+  let n = 1;
+  document.querySelectorAll("#vistaNueva .card").forEach(c => { if (!c.classList.contains("oculto")) c.querySelector(".n").textContent = n++; });
+
+  $("listaIds").innerHTML = (CATALOGO[f.tipo] || []).map(id => `<option value="${esc(id)}">`).join("");
+  $("identificador").value = f.identificador;
+  $("identificador").inputMode = esNap ? "numeric" : "text";
+  $("p1").value = f.p1; $("p2").value = f.p2;
+  $("link").value = f.link; $("estado").value = f.estado;
+  $("btnGuardar").textContent = f.existente === "No" ? "💾 Guardar (no existente)" : "💾 Guardar inspección";
+  avisoIdentificador(); diagnostico(); estadoGps(); mostrarFoto();
+}
+
+function avisoIdentificador(){
+  const box = $("avisoId"); const id = f.identificador.trim();
+  if (!id || !f.tipo) { box.innerHTML = ""; return; }
+  const idn = normId(id, f.tipo).toUpperCase();
+  const enCat = (CATALOGO[f.tipo] || []).some(x => x.toUpperCase() === idn);
+  const previo = registrosCache.find(r => r.tipo === f.tipo && String(r.identificador).toUpperCase() === idn);
+  let h = "";
+  if (previo) h += `<div class="aviso warn">⚠️ Ya registraste este elemento en este teléfono el ${esc(previo.fecha_hora)}. Se guardará como reinspección.</div>`;
+  if (!enCat) h += `<div class="aviso warn">ℹ️ No está en el catálogo: se guardará como ID manual.</div>`;
+  box.innerHTML = h;
+}
+
+function diagnostico(){
+  const a = numPotencia(f.p1), b = numPotencia(f.p2), box = $("diag");
+  if (a === null || b === null) { box.innerHTML = ""; return; }
+  const crit = a < UMBRAL_CRITICO || b < UMBRAL_CRITICO;
+  box.innerHTML = `<div class="aviso ${crit ? "bad" : "ok"}">P1 ${a} dBm · P2 ${b} dBm → <b>${crit ? "CRÍTICA" : "OK"}</b></div>`;
+}
+
+function estadoGps(){
+  const box = $("gpsEstado");
+  if (f.lat !== null && f.lon !== null) {
+    const p = f.precision ? ` · precisión ±${Math.round(f.precision)} m` : "";
+    const cls = f.precision && f.precision > 30 ? "warn" : "ok";
+    box.innerHTML = `<div class="aviso ${cls}">✅ ${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}${p}${cls === "warn" ? " — puedes reintentar para mejorar" : ""}</div>`;
+  } else if (f.link) {
+    box.innerHTML = `<div class="aviso warn">🔗 Enlace guardado. Las coordenadas se extraerán al importar en el bot.</div>`;
+  } else box.innerHTML = "";
+}
+
+/* =====================================================================
+   GPS
+   ===================================================================== */
+function capturarGps(){
+  if (!("geolocation" in navigator)) { toast("Este navegador no tiene GPS disponible"); return; }
+  const btn = $("btnGps"); btn.disabled = true; btn.textContent = "⏳ Buscando señal GPS…";
+  let mejor = null, fin = false;
+  const terminar = () => {
+    if (fin) return; fin = true; navigator.geolocation.clearWatch(w); clearTimeout(tm);
+    btn.disabled = false; btn.textContent = "📍 Volver a capturar GPS";
+    if (mejor) {
+      f.lat = +mejor.coords.latitude.toFixed(6); f.lon = +mejor.coords.longitude.toFixed(6);
+      f.precision = mejor.coords.accuracy; f.link = ""; $("link").value = "";
+      estadoGps(); guardarBorrador(); $("secUbic").classList.remove("falta");
+    }
+  };
+  // Escucha varias lecturas durante hasta 20 s y se queda con la más precisa
+  const w = navigator.geolocation.watchPosition(pos => {
+    if (!mejor || pos.coords.accuracy < mejor.coords.accuracy) mejor = pos;
+    $("gpsEstado").innerHTML = `<div class="aviso warn">Precisión actual ±${Math.round(pos.coords.accuracy)} m…</div>`;
+    if (pos.coords.accuracy <= 10) terminar();
+  }, err => {
+    if (!mejor) {
+      const m = { 1: "Permiso de ubicación denegado. Actívalo en el navegador.", 2: "No hay señal GPS. Sal a cielo abierto.", 3: "Tiempo agotado buscando GPS." };
+      $("gpsEstado").innerHTML = `<div class="aviso bad">❌ ${m[err.code] || err.message}</div>`;
+      fin = true; navigator.geolocation.clearWatch(w); clearTimeout(tm);
+      btn.disabled = false; btn.textContent = "📍 Reintentar GPS";
+    }
+  }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+  const tm = setTimeout(terminar, 20000);
+}
+
+/* =====================================================================
+   FOTO (se comprime para que el archivo de exportación sea liviano)
+   ===================================================================== */
+function cargarFoto(input){
+  const file = input.files && input.files[0]; input.value = "";
+  if (!file) return;
+  $("fotoInfo").textContent = "Procesando foto…";
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const k = Math.min(1, FOTO_MAX_PX / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    f.foto = c.toDataURL("image/jpeg", FOTO_CALIDAD);
+    mostrarFoto(); guardarBorrador(); $("secFoto").classList.remove("falta");
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); $("fotoInfo").textContent = "❌ No se pudo leer la imagen."; };
+  img.src = url;
+}
+function mostrarFoto(){
+  const p = $("fotoPrev");
+  if (f.foto) {
+    p.src = f.foto; p.style.display = "block";
+    $("fotoInfo").textContent = `Foto lista (${Math.round(f.foto.length * 0.75 / 1024)} KB)`;
+  } else { p.removeAttribute("src"); p.style.display = "none"; $("fotoInfo").textContent = ""; }
+}
+
+/* =====================================================================
+   GUARDAR
+   ===================================================================== */
+function validar(){
+  const faltan = [];
+  if (!zonaActual()) faltan.push(["secZona", "Zona"]);
+  if (!f.tipo) faltan.push(["secTipo", "Elemento"]);
+  if (f.tipo && !f.identificador.trim()) faltan.push(["secId", "Identificador"]);
+  if (f.tipo && !f.existente) faltan.push(["secExiste", "¿Existe?"]);
+  if (f.existente === "Sí") {
+    if (CON_HILO.includes(f.tipo) && !f.hilo) faltan.push(["secHilo", "Hilo del splitter"]);
+    if (f.tipo === "NAP N2") {
+      if (numPotencia(f.p1) === null || numPotencia(f.p2) === null) faltan.push(["secPot", "Potencias P1 y P2"]);
+      if (f.puertos === "") faltan.push(["secPuertos", "Puertos ocupados"]);
+    }
+    if (f.lat === null && !f.link) faltan.push(["secUbic", "Ubicación"]);
+    if (!f.coincide) faltan.push(["secCoincide", "¿Coincide la ubicación?"]);
+    if (!f.foto) faltan.push(["secFoto", "Foto"]);
+    if (!f.estado.trim()) faltan.push(["secEstado", "Estado"]);
+  }
+  return faltan;
+}
+
+async function guardar(){
+  document.querySelectorAll(".card.falta").forEach(c => c.classList.remove("falta"));
+  const faltan = validar();
+  if (faltan.length) {
+    faltan.forEach(([id]) => $(id).classList.add("falta"));
+    $(faltan[0][0]).scrollIntoView({ behavior: "smooth", block: "start" });
+    toast("Falta: " + faltan.map(x => x[1]).join(", "), 3500);
+    return;
+  }
+  const si = f.existente === "Sí", esNap = f.tipo === "NAP N2";
+  const p1 = numPotencia(f.p1), p2 = numPotencia(f.p2);
+  const hilo = HILOS.find(h => h[0] === f.hilo);
+  const rec = {
+    id: "APP-" + uuid(),
+    creado: Date.now(),
+    fecha_hora: fechaLocal(),
+    zona: zonaActual(),
+    tipo: f.tipo,
+    identificador: normId(f.identificador, f.tipo),
+    existente: f.existente,
+    hilo_splitter: si && CON_HILO.includes(f.tipo) && hilo ? hilo[1] : "N/A",
+    potencia_p1: si && esNap ? p1 : "N/A",
+    potencia_p2: si && esNap ? p2 : "N/A",
+    diag_potencia: si && esNap ? ((p1 < UMBRAL_CRITICO || p2 < UMBRAL_CRITICO) ? "CRÍTICA" : "OK") : "N/A",
+    puertos_ocupados: si && esNap ? parseInt(f.puertos, 10) : "N/A",
+    link_maps: si ? (f.link || (f.lat !== null ? `https://www.google.com/maps?q=${f.lat},${f.lon}` : "")) : "N/A",
+    lat: si ? f.lat : null,
+    lon: si ? f.lon : null,
+    precision_m: si && f.precision ? Math.round(f.precision) : null,
+    ubicacion_coincide: si ? f.coincide : "N/A",
+    estado: si ? f.estado.trim() : "Elemento No Existente",
+    foto: si ? f.foto : "",
+    exportado: false
+  };
+  try {
+    await DB.guardar(rec);
+  } catch (e) {
+    toast("❌ No se pudo guardar: " + e.message, 5000); return;
+  }
+  const zonaPrev = f.zona, zonaOtraPrev = f.zonaOtra;
+  await recargarRegistros();
+  limpiar(false);
+  f.zona = zonaPrev; f.zonaOtra = zonaOtraPrev;   // se recuerda la zona para la siguiente
+  refrescar(); guardarBorrador();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  toast(`✅ Guardado: ${rec.tipo} ${rec.identificador}`);
+}
+
+function limpiar(preguntar){
+  if (preguntar && !confirm("¿Borrar los datos de esta inspección sin guardar?")) return;
+  const zona = f.zona, zonaOtra = f.zonaOtra;
+  f = VACIO(); f.zona = zona; f.zonaOtra = zonaOtra;
+  document.querySelectorAll(".card.falta").forEach(c => c.classList.remove("falta"));
+  $("btnGps").textContent = "📍 Capturar GPS";
+  refrescar(); guardarBorrador();
+}
+
+/* =====================================================================
+   REGISTROS
+   ===================================================================== */
+async function recargarRegistros(){
+  registrosCache = (await DB.todos()).sort((a, b) => b.creado - a.creado);
+  const pend = registrosCache.filter(r => !r.exportado).length;
+  $("cPend").textContent = pend; $("cExp").textContent = registrosCache.length - pend; $("cTot").textContent = registrosCache.length;
+  const bd = $("badge"); bd.textContent = pend; bd.classList.toggle("oculto", pend === 0);
+  $("btnEnviar").disabled = pend === 0;
+  pintarLista();
+}
+
+function pintarLista(){
+  const box = $("listaReg");
+  if (!registrosCache.length) { box.innerHTML = `<div class="card hint">Aún no hay inspecciones guardadas en este teléfono.</div>`; return; }
+  box.innerHTML = registrosCache.map(r => `
+    <div class="card reg">
+      ${r.foto ? `<img src="${r.foto}" alt="">` : `<img alt="">`}
+      <div style="min-width:0">
+        <div class="t">${esc(r.tipo)} · ${esc(r.identificador)}</div>
+        <div class="m">${esc(r.fecha_hora)} · ${esc(r.zona)}</div>
+        <div class="m">${esc(r.estado)}</div>
+        <span class="tag ${r.exportado ? "exp" : "pend"}">${r.exportado ? "Enviado" : "Pendiente"}</span>
+        ${r.existente === "No" ? `<span class="tag no">No existe</span>` : ""}
+        ${r.diag_potencia === "CRÍTICA" ? `<span class="tag crit">Potencia crítica</span>` : ""}
+      </div>
+      <button class="x" title="Eliminar" onclick="borrarUno('${esc(r.id)}')">×</button>
+    </div>`).join("");
+}
+
+async function borrarUno(id){
+  const r = registrosCache.find(x => x.id === id);
+  const aviso = r && !r.exportado ? "\n\n⚠️ Este registro AÚN NO se ha enviado al bot." : "";
+  if (!confirm("¿Eliminar este registro del teléfono?" + aviso)) return;
+  await DB.borrar([id]); await recargarRegistros(); avisoIdentificador();
+}
+
+async function borrarEnviados(){
+  const ids = registrosCache.filter(r => r.exportado).map(r => r.id);
+  if (!ids.length) { toast("No hay registros enviados para borrar"); return; }
+  if (!confirm(`¿Borrar ${ids.length} registro(s) ya enviados?\nConfirma antes que el bot respondió "Importación completada".`)) return;
+  await DB.borrar(ids); await recargarRegistros(); toast("🗑️ Registros enviados eliminados");
+}
+
+/* =====================================================================
+   EXPORTAR → archivo JSON para el bot
+   ===================================================================== */
+function paraExportar(r){
+  const { foto, exportado, creado, ...resto } = r;
+  return { ...resto, foto_b64: foto ? foto.split(",")[1] : "" };
+}
+
+function armarLotes(lista){
+  const lotes = []; let actual = [], peso = 0;
+  for (const r of lista) {
+    const x = paraExportar(r), p = JSON.stringify(x).length;
+    if (actual.length && peso + p > LOTE_MAX_BYTES) { lotes.push(actual); actual = []; peso = 0; }
+    actual.push(x); peso += p;
+  }
+  if (actual.length) lotes.push(actual);
+  return lotes;
+}
+
+function descargar(file){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+async function exportar(todos){
+  const lista = registrosCache.filter(r => todos || !r.exportado).slice().reverse();
+  if (!lista.length) { toast("No hay registros para enviar"); return; }
+  const lotes = armarLotes(lista);
+  const sello = fechaLocal().replace(/[-: ]/g, "").slice(0, 12);
+  const archivos = lotes.map((regs, i) => {
+    const cuerpo = JSON.stringify({ formato: FORMATO, generado: fechaLocal(), total: regs.length, registros: regs });
+    const sufijo = lotes.length > 1 ? `_${i + 1}de${lotes.length}` : "";
+    return new File([cuerpo], `osp_${todos ? "respaldo" : "envio"}_${sello}${sufijo}.json`, { type: "application/json" });
+  });
+
+  let enviado = false;
+  if (!todos && navigator.canShare) {
+    // Intento 1: compartir directo (permite elegir Telegram → el bot)
+    let candidatos = archivos;
+    if (!navigator.canShare({ files: candidatos })) {
+      candidatos = archivos.map(a => new File([a], a.name.replace(/\.json$/, ".txt"), { type: "text/plain" }));
+      if (!navigator.canShare({ files: candidatos })) candidatos = null;
+    }
+    if (candidatos) {
+      try {
+        await navigator.share({ files: candidatos, title: "Inspecciones OSP", text: `${lista.length} inspección(es) OSP` });
+        enviado = true;
+      } catch (e) {
+        if (e.name === "AbortError") { toast("Envío cancelado"); return; }
+      }
+    }
+  }
+  if (!enviado) {
+    archivos.forEach(descargar);
+    enviado = true;
+    if (!todos) toast(`📁 Archivo descargado. Envíalo al bot desde Telegram (📎 → Archivo).`, 5000);
+    else toast("💾 Respaldo descargado", 3000);
+  }
+  if (enviado && !todos) {
+    for (const r of lista) { r.exportado = true; await DB.guardar(r); }
+    await recargarRegistros();
+  }
+}
+
+/* =====================================================================
+   NAVEGACIÓN, RED Y ARRANQUE
+   ===================================================================== */
+function verTab(t){
+  const nueva = t === "nueva";
+  $("vistaNueva").classList.toggle("oculto", !nueva);
+  $("vistaReg").classList.toggle("oculto", nueva);
+  $("barraGuardar").classList.toggle("oculto", !nueva);
+  $("tabNueva").classList.toggle("on", nueva);
+  $("tabReg").classList.toggle("on", !nueva);
+  window.scrollTo(0, 0);
+}
+
+function red(){
+  const on = navigator.onLine, n = $("net");
+  n.textContent = on ? "● En línea" : "● Sin señal (modo offline)";
+  n.classList.toggle("off", !on);
+}
+
+(async function iniciar(){
+  construir(); cargarBorrador(); red();
+  addEventListener("online", red); addEventListener("offline", red);
+  try { await DB.abrir(); await recargarRegistros(); }
+  catch (e) { toast("❌ El almacenamiento local no está disponible: " + e.message, 6000); }
+  refrescar();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW", e));
+  }
+})();
+</script>
+</body>
+</html>
